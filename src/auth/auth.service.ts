@@ -84,8 +84,8 @@ export class AuthService {
 
     if (!user || !user.hashedRt) throw new ForbiddenException('Access denied');
 
-    const rtMatches = argon.verify(user.hashedRt, refresh_token);
-    if (!rtMatches) throw new ForbiddenException('Access denied');
+    const rtMatches = await argon.verify(user.hashedRt, refresh_token);
+    if (!rtMatches) throw new ForbiddenException('Access Denied');
 
     const tokens = await this.getTokens(user.id, user.email);
     await this.updateRtHash(user.id, tokens.refresh_token);
@@ -96,6 +96,7 @@ export class AuthService {
   //update refresh_token function;
   async updateRtHash(userId: number, refresh_token: string) {
     const hash = await argon.hash(refresh_token);
+
     await this.prisma.user.update({
       where: {
         id: userId,
@@ -120,7 +121,7 @@ export class AuthService {
       }),
       this.jwtService.signAsync(jwtPayload, {
         secret: this.config.get<string>('RT_SECRET'),
-        expiresIn: '7d',
+        expiresIn: '3d',
       }),
     ]);
 
