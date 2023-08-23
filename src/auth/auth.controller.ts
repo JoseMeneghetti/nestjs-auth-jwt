@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
@@ -16,6 +17,7 @@ import {
   GetCurrentUserId,
   Public,
 } from 'src/common/decorators';
+import { IUser } from './types/user.type';
 
 @Controller('auth')
 export class AuthController {
@@ -49,5 +51,12 @@ export class AuthController {
     @GetCurrentUser('refreshToken') refreshToken: string,
   ): Promise<Tokens> {
     return this.authService.refreshTokens(userId, refreshToken);
+  }
+
+  @Get('me')
+  @HttpCode(HttpStatus.OK)
+  me(@GetCurrentUserId() userId: number): Promise<IUser> {
+    console.log(userId);
+    return this.authService.me(userId);
   }
 }

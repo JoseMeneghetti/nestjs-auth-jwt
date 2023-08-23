@@ -6,6 +6,7 @@ import { JwtPayload, Tokens } from './types';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { ConfigService } from '@nestjs/config';
+import { IUser } from './types/user.type';
 
 @Injectable()
 export class AuthService {
@@ -58,6 +59,23 @@ export class AuthService {
     await this.updateRtHash(user.id, tokens.refresh_token);
 
     return tokens;
+  }
+
+  async me(userId: number): Promise<IUser> {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (!user || !user.hash) throw new ForbiddenException('Access denied');
+
+    const responseData: IUser = {
+      id: user.id,
+      email: user.email,
+    };
+
+    return responseData;
   }
 
   async logout(userId: number): Promise<boolean> {
@@ -117,11 +135,11 @@ export class AuthService {
     const [at, rt] = await Promise.all([
       this.jwtService.signAsync(jwtPayload, {
         secret: this.config.get<string>('AT_SECRET'),
-        expiresIn: '15m',
+        expiresIn: '1d',
       }),
       this.jwtService.signAsync(jwtPayload, {
         secret: this.config.get<string>('RT_SECRET'),
-        expiresIn: '3d',
+        expiresIn: '7d',
       }),
     ]);
 
