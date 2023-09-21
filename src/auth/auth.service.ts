@@ -1,12 +1,12 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { AuthDto } from './dto/auth.dto';
 import * as argon from 'argon2';
 import { JwtPayload, Tokens } from './types';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { ConfigService } from '@nestjs/config';
-import { IUser } from './types/user.type';
+import { IMeResponse } from './types/user.type';
+import { AuthDtoSignIn, AuthDtoSignUp } from './dto';
 
 @Injectable()
 export class AuthService {
@@ -16,7 +16,19 @@ export class AuthService {
     private config: ConfigService,
   ) {}
 
-  async signupLocal(dto: AuthDto): Promise<Tokens> {
+  private async getUser(userId: number) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (!user || !user.hash) throw new ForbiddenException('Access denied');
+
+    return user;
+  }
+
+  async signupLocal(dto: AuthDtoSignUp): Promise<Tokens> {
     const hash = await argon.hash(dto.password);
 
     const newUser = await this.prisma.user
@@ -29,7 +41,7 @@ export class AuthService {
       .catch((error) => {
         if (error instanceof PrismaClientKnownRequestError) {
           if (error.code === 'P2002') {
-            throw new ForbiddenException('Credentials incorrect');
+            throw new ForbiddenException('This E-mail is already in use.');
           }
         }
         throw error;
@@ -41,18 +53,19 @@ export class AuthService {
     return tokens;
   }
 
-  async signinLocal(dto: AuthDto): Promise<Tokens> {
+  async signinLocal(dto: AuthDtoSignIn): Promise<Tokens> {
     const user = await this.prisma.user.findUnique({
       where: {
         email: dto.email,
       },
     });
 
-    if (!user) throw new ForbiddenException('Access Denied');
+    if (!user)
+      throw new ForbiddenException('E-mail not found in our database.');
 
     const passwordMatches = await argon.verify(user.hash, dto.password);
 
-    if (!passwordMatches) throw new ForbiddenException('Access Denied');
+    if (!passwordMatches) throw new ForbiddenException('Password incorret.');
 
     const tokens = await this.getTokens(user.id, user.email);
 
@@ -61,16 +74,10 @@ export class AuthService {
     return tokens;
   }
 
-  async me(userId: number): Promise<IUser> {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-    });
+  async me(userId: number): Promise<IMeResponse> {
+    const user = await this.getUser(userId);
 
-    if (!user || !user.hash) throw new ForbiddenException('Access denied');
-
-    const responseData: IUser = {
+    const responseData: IMeResponse = {
       id: user.id,
       email: user.email,
     };
@@ -94,13 +101,7 @@ export class AuthService {
   }
 
   async refreshTokens(userId: number, refresh_token: string) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-    });
-
-    if (!user || !user.hashedRt) throw new ForbiddenException('Access denied');
+    const user = await this.getUser(userId);
 
     const rtMatches = await argon.verify(user.hashedRt, refresh_token);
     if (!rtMatches) throw new ForbiddenException('Access Denied');

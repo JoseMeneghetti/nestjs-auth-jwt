@@ -9,7 +9,6 @@ import {
 } from '@nestjs/common';
 
 import { AuthService } from './auth.service';
-import { AuthDto } from './dto/auth.dto';
 import { Tokens } from './types';
 import { RtGuard } from 'src/common/guards';
 import {
@@ -17,7 +16,8 @@ import {
   GetCurrentUserId,
   Public,
 } from 'src/common/decorators';
-import { IUser } from './types/user.type';
+import { IMeResponse } from './types/user.type';
+import { AuthDtoSignIn, AuthDtoSignUp } from './dto';
 
 @Controller('auth')
 export class AuthController {
@@ -26,13 +26,13 @@ export class AuthController {
   @Public()
   @Post('local/signup')
   @HttpCode(HttpStatus.CREATED)
-  signupLocal(@Body() dto: AuthDto): Promise<Tokens> {
+  signupLocal(@Body() dto: AuthDtoSignUp): Promise<Tokens> {
     return this.authService.signupLocal(dto);
   }
   @Public()
   @HttpCode(HttpStatus.OK)
   @Post('local/signin')
-  signinLocal(@Body() dto: AuthDto): Promise<Tokens> {
+  signinLocal(@Body() dto: AuthDtoSignIn): Promise<Tokens> {
     return this.authService.signinLocal(dto);
   }
 
@@ -55,8 +55,7 @@ export class AuthController {
 
   @Get('me')
   @HttpCode(HttpStatus.OK)
-  me(@GetCurrentUserId() userId: number): Promise<IUser> {
-    console.log(userId);
+  me(@GetCurrentUserId() userId: number): Promise<IMeResponse> {
     return this.authService.me(userId);
   }
 }
